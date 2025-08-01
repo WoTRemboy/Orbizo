@@ -137,7 +137,7 @@ public class ScoreManager : MonoBehaviour {
 
 		if (currentScore > PlayerPrefs.GetInt ("HighScore", 0)) //see if the score of current run is higher than the record 
 		{
-			gameOverScoreText.text = "New Socre Record: " + currentScore.ToString (); //show score text with congrats
+			gameOverScoreText.text = "New Score Record: " + currentScore.ToString (); //show score text with congrats
 
 			PlayerPrefs.SetInt ("HighScore", currentScore); //we store the current score as the new high score
 		}
