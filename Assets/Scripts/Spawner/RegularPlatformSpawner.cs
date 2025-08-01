@@ -3,94 +3,102 @@ using System.Collections;
 using System.Collections.Generic;
 
 //script for regular scence, replacing PlatformSpawner
-public class RegularPlatformSpawner : MonoBehaviour {
+public class RegularPlatformSpawner : MonoBehaviour
+{
+    [Header("Spawn settings")]
+    public Platform[] platforms;
+    public float platformLength = 3f;
+    public int amountAtStart = 6;
 
-	public Platform[] platforms;
-	public float platformLength;
-	public int amountAtStart;
-	public Transform player;
+    [Tooltip("Игрок (нужен только по X)")]
+    public Transform player;
 
-	private Vector2 playerGroundPosition;
-	private Vector2 lastSpawnPoint;
-	private Vector2 checkPoint;
-	private Vector2 checkPointDistance;
-	private float sqrPlatformLength;
-	private List<KeyValuePair<GameObject, int>> platformList;
-	private List<float> cd;
-	private List<float> cdAtStart;
-	private Pool pool;
-	private SpawnManager spawnManager;
+    [Header("Off-screen settings")]
+    [SerializeField] private float screenOffset = 2f;     // ← запас за краем экрана
 
-	void Start ()
-	{
-		spawnManager = GameObject.Find ("GameManager").GetComponent<SpawnManager> ();
-		
-		pool = GetComponent<Pool> ();
-		
-		playerGroundPosition = new Vector2 (player.position.x, 0f);
+    // --- runtime ---
+    private Vector2 playerGroundPosition;
+    private Vector2 lastSpawnPoint;
+    private Vector2 checkPoint;
+    private Vector2 checkPointDistance;
+    private float sqrPlatformLength;
 
-		StructProcessor ();
-		
-		pool.CreatePool (platformList, transform);
-		
-		lastSpawnPoint = SpawnAtStart (amountAtStart);
-		
-		CalculateCheckPointDistance ();
-		
-		sqrPlatformLength = Mathf.Pow (platformLength - 0.2f, 2f);
-	}
-	
-	void Update ()
-	{
-		playerGroundPosition = new Vector2 (player.position.x, 0f);
+    // camera data
+    private float halfScreenWidth;
 
-		checkPoint = playerGroundPosition + checkPointDistance;
-		
-		float sqrDistance = (checkPoint - lastSpawnPoint).sqrMagnitude;
-		
-		if (sqrDistance > sqrPlatformLength)
-		{
-			GameObject obj = SpawnPlatform (cd, checkPoint);
-			
-			spawnManager.SendMessage ("SpawnOtherStuff", obj.transform, SendMessageOptions.DontRequireReceiver);
-			
-			lastSpawnPoint = checkPoint;
-		}
-	}
-	
-	Vector2 SpawnAtStart (int amount)
-	{
-		SpawnPlatform (cdAtStart, playerGroundPosition);
+    private List<KeyValuePair<GameObject, int>> platformList;
+    private List<float> cd, cdAtStart;
+    private Pool pool;
+    private SpawnManager spawnManager;
 
-		Vector2 lastSpawnPoint = playerGroundPosition;
-		
-		for (int i = 0; i < amount - 1; i++)
-		{
-			lastSpawnPoint.x += platformLength;
-			
-			SpawnPlatform (cdAtStart, lastSpawnPoint);
-		}
-		
-		return lastSpawnPoint;
-	}
-	
-	GameObject SpawnPlatform (List<float> cd, Vector2 position)
-	{
-		GameObject obj = pool.getPooledObject (BinarySearch.RandomNumberGenerator (cd));
-		
-		obj.transform.position = position;
+    void Start()
+    {
+        spawnManager = GameObject.Find("GameManager").GetComponent<SpawnManager>();
+        pool = GetComponent<Pool>();
 
-		obj.SetActive (true);
-		
-		return obj;
-	}
-	
-	void CalculateCheckPointDistance ()
-	{
-		checkPointDistance = new Vector2 (amountAtStart * platformLength, 0f);
-	}
-	
-	void StructProcessor () 
+        // ► ширина видимой области (мировые ед.!)
+        halfScreenWidth = Camera.main.orthographicSize * Camera.main.aspect;
+
+        playerGroundPosition = new Vector2(player.position.x, 0f);
+
+        StructProcessor();
+        pool.CreatePool(platformList, transform);
+
+        lastSpawnPoint = SpawnAtStart(amountAtStart);
+
+        CalculateCheckPointDistance();               // ← обновлённый расчёт
+        sqrPlatformLength = Mathf.Pow(platformLength - 0.2f, 2f);
+    }
+
+    void Update()
+    {
+        playerGroundPosition = new Vector2(player.position.x, 0f);
+        checkPoint = playerGroundPosition + checkPointDistance;
+
+        if ((checkPoint - lastSpawnPoint).sqrMagnitude > sqrPlatformLength)
+        {
+            GameObject obj = SpawnPlatform(cd, checkPoint);
+            spawnManager.SendMessage("SpawnOtherStuff", obj.transform, SendMessageOptions.DontRequireReceiver);
+            lastSpawnPoint = checkPoint;
+        }
+    }
+
+    /* ---------- key change ---------- */
+    void CalculateCheckPointDistance()
+    {
+        // базовая «длина очереди» из amountAtStart
+        float baseDistance = amountAtStart * platformLength;
+
+        // минимальное расстояние, обеспечивающее появление за экраном
+        float minDistance = halfScreenWidth + screenOffset;
+
+        float dist = Mathf.Max(baseDistance, minDistance);
+        checkPointDistance = new Vector2(dist, 0f);
+    }
+    /* -------------------------------- */
+
+    Vector2 SpawnAtStart(int amount)
+    {
+        SpawnPlatform(cdAtStart, playerGroundPosition);
+
+        Vector2 last = playerGroundPosition;
+        for (int i = 0; i < amount - 1; i++)
+        {
+            last.x += platformLength;
+            SpawnPlatform(cdAtStart, last);
+        }
+        return last;
+    }
+
+    GameObject SpawnPlatform(List<float> cd, Vector2 position)
+    {
+        GameObject obj = pool.getPooledObject(BinarySearch.RandomNumberGenerator(cd));
+        obj.transform.position = position;
+        obj.SetActive(true);
+        return obj;
+    }
+
+    void StructProcessor () 
 	{	
 		platformList = new List<KeyValuePair<GameObject, int>> (); 
 		cd = new List<float> ();

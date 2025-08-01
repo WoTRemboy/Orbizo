@@ -17,6 +17,7 @@ public class PlatformSpawner : MonoBehaviour {
 	[SerializeField] private Platform[] platforms; //a set of randomly spawned objects
 	[SerializeField] private float platformLength; //the length of platforms
 	[SerializeField] private int amountAtStart; //the number of platforms need to spawn at start. This value also is used to calculate checkPointDistance which decides how far the spawn point is. If you find objects are spawned on screen, please increase this value.
+	[SerializeField] private float screenOffset = 2f; // extra offset to ensure spawning outside screen
 
 	private float groundRadius; //the radius of ground. We will get the value from GameManager script, so no need to set the value here.
 	private Vector2 playerGroundPosition;
@@ -80,7 +81,7 @@ public class PlatformSpawner : MonoBehaviour {
 	//spawn the platforms for the start stage. In other words, platforms created before the game starts.
 	Vector2 SpawnAtStart (int amount)
 	{
-		SpawnPlatform (cdAtStart, playerGroundPosition, playerGroundRotation);
+		// SpawnPlatform (cdAtStart, playerGroundPosition, playerGroundRotation);
 		
 		Quaternion rotation;
 		
@@ -90,7 +91,7 @@ public class PlatformSpawner : MonoBehaviour {
 		{
 			lastSpawnPoint = Trigonometricf.GetPosition (groundRadius, groundRadius, platformLength, lastSpawnPoint, out rotation);
 			
-			SpawnPlatform (cdAtStart, lastSpawnPoint, rotation);
+			// SpawnPlatform (cdAtStart, lastSpawnPoint, rotation);
 		}
 
 		return lastSpawnPoint;
@@ -115,8 +116,10 @@ public class PlatformSpawner : MonoBehaviour {
 	void CalculateCheckPointDistance ()
 	{
 		float alpha = Mathf.Acos (1f - 0.5f * Mathf.Pow (platformLength / groundRadius, 2f));
-		
-		checkPointDistance = Mathf.Sqrt (2f - 2f * Mathf.Cos(amountAtStart * alpha)) * groundRadius;
+
+		float rawDistance = Mathf.Sqrt (2f - 2f * Mathf.Cos(amountAtStart * alpha)) * groundRadius;
+
+		checkPointDistance = Mathf.Max(rawDistance, groundRadius + screenOffset);
 	}
 
 	//Calculate cumulative distributions and create a list for object pooling from the custom platform struct array

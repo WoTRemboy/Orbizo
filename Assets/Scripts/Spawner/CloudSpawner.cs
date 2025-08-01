@@ -2,50 +2,69 @@
 using System.Collections;
 using System.Collections.Generic;
 
-[RequireComponent (typeof (Pool))]
-public class CloudSpawner : MonoBehaviour {
+[RequireComponent(typeof(Pool))]
+public class CloudSpawner : MonoBehaviour
+{
+    // ──────────────── Inspector Fields ────────────────
+    [Header("Cloud prefabs")]
+    [SerializeField] private GameObject[] clouds;          // Prefabs to spawn
 
-	[SerializeField] private GameObject[] clouds;
-	[SerializeField] private float minY; //minimum y axis value of the spawning point (local position of background)
-	[SerializeField] private float maxY; //maximum y asix value (local position of background)
-	[SerializeField] private float x; //x axis value of the spawning point (local position of background)
-	[SerializeField] private float interval; //seconds needed to wait before spawning a new cloud
-	[SerializeField] private float minSpeed; //minimum cloud speed
-	[SerializeField] private float maxSpeed; //maximum cloud speed
+    [Header("Spawn area (Y-axis, local to background)")]
+    [SerializeField] private float minY = -3f;             // Lowest local Y position
+    [SerializeField] private float maxY = 3f;             // Highest local Y position
 
-	private Pool pool;
+    [Header("Timing & speed")]
+    [SerializeField] private float interval = 3f;         // Seconds between spawns
+    [SerializeField] private float minSpeed = 0.4f;       // Minimum cloud speed
+    [SerializeField] private float maxSpeed = 0.8f;       // Maximum cloud speed
 
-	void Start ()
-	{
-		pool = GetComponent<Pool> ();
+    [Header("Off-screen offset")]
+    [SerializeField] private float screenOffset = 1f;      // Extra distance beyond the visible edge
 
-		List<KeyValuePair<GameObject, int>> cloudList = new List<KeyValuePair<GameObject, int>> ();
+    // ──────────────── Runtime Fields ────────────────
+    private Pool pool;
+    private Camera cam;
+    private float halfScreenWidth;                        // Half of the visible width (world units)
 
-		foreach (GameObject cloud in clouds) //create a list which is needed by the object pooling script
-			cloudList.Add(new KeyValuePair<GameObject, int> (cloud, 2));
+    // ──────────────── Unity Events ────────────────
+    private void Start()
+    {
+        cam = Camera.main;
+        halfScreenWidth = cam.orthographicSize * cam.aspect; // Convert camera size to world units
 
-		pool.CreatePool (cloudList, transform);
+        pool = GetComponent<Pool>();
 
-		StartCoroutine (SpawnCloud ());
-	}
-	
-	IEnumerator SpawnCloud ()
-	{
-		while (true)
-		{
-			Vector2 position = new Vector2 (x, Random.Range (minY, maxY)); //random spawn position
+        // Build object-pool list: two instances of each prefab
+        var list = new List<KeyValuePair<GameObject, int>>();
+        foreach (GameObject c in clouds)
+            list.Add(new KeyValuePair<GameObject, int>(c, 2));
 
-			int index = Random.Range (0, clouds.Length); //random number, decide which cloud to spawn
+        pool.CreatePool(list, transform);
 
-			GameObject cloud = pool.getPooledObject (index); //get the cloud from the pool
+        StartCoroutine(SpawnCloud());
+    }
 
-			cloud.transform.localPosition = position; //change the positon, since the 'position' is a local position related to the background, we need to change the local position of the cloud. (Because clouds are child objects of background)
+    // ──────────────── Coroutines ────────────────
+    private IEnumerator SpawnCloud()
+    {
+        while (true)
+        {
+            // X position: right camera edge plus offset
+            float worldX = cam.transform.position.x + halfScreenWidth + screenOffset;
+            // Y position: random inside the configured vertical range (local → world)
+            float worldY = transform.position.y + Random.Range(minY, maxY);
 
-			cloud.GetComponent<CloudMover> ().speed = Random.Range (minSpeed, maxSpeed); //pick a random speed for the cloud
+            Vector2 spawnPos = new Vector2(worldX, worldY);
 
-			cloud.SetActive (true);
+            // Pick a random prefab from the pool
+            int prefabIndex = Random.Range(0, clouds.Length);
+            GameObject cloud = pool.getPooledObject(prefabIndex);
 
-			yield return new WaitForSeconds (interval); //wait several seconds before spawning a new cloud
-		}
-	}
+            cloud.transform.position = spawnPos;                                  // World position
+            cloud.GetComponent<CloudMover>().speed = Random.Range(minSpeed, maxSpeed);
+            cloud.SetActive(true);
+
+            yield return new WaitForSeconds(interval);
+        }
+    }
 }
